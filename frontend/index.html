@@ -1,0 +1,1652 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AI — Helmet Detection System</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Rajdhani:wght@400;500;600;700&family=Space+Mono:ital,wght@0,400;0,700;1,400&family=DM+Sans:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<style>
+:root {
+  --bg-solid: #0a0c10;
+  --surface: rgba(18, 22, 30, 0.98);
+  --surface2: #111520;
+  --surface3: #1a1f2e;
+  --border: rgba(0, 245, 160, 0.08);
+  --border-solid: rgba(0, 245, 160, 0.12);
+  --accent: #00f5a0;
+  --accent2: #ff3864;
+  --accent3: #00c9ff;
+  --accent4: #b347ff;
+  --accent5: #ffaa00;
+  --text: #e8eaf0;
+  --text2: #8b90a0;
+  --text3: #4a5068;
+  --glow: rgba(0, 245, 160, 0.07);
+  --red-glow: rgba(255, 56, 100, 0.1);
+  --green-glow: rgba(0, 245, 160, 0.08);
+  --purple-glow: rgba(179, 71, 255, 0.1);
+  --cyan-glow: rgba(0, 201, 255, 0.1);
+  --font-display: 'Rajdhani', sans-serif;
+  --font-mono: 'Space Mono', monospace;
+  --font-body: 'DM Sans', sans-serif;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html { scroll-behavior: smooth; }
+body {
+  font-family: var(--font-body);
+  background: #0a0c10;
+  color: var(--text);
+  min-height: 100vh;
+  overflow-x: hidden;
+  position: relative;
+}
+
+/* Deep space background */
+body::before {
+  content: '';
+  position: fixed;
+  inset: 0;
+  background:
+    radial-gradient(ellipse 80% 50% at 20% 20%, rgba(0, 245, 160, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 60% 40% at 80% 80%, rgba(0, 201, 255, 0.04) 0%, transparent 60%),
+    radial-gradient(ellipse 40% 30% at 60% 10%, rgba(179, 71, 255, 0.04) 0%, transparent 50%);
+  pointer-events: none;
+  z-index: 0;
+}
+
+/* Subtle scanline */
+body::after {
+  content: '';
+  position: fixed; inset: 0;
+  background: repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(0,245,160,0.012) 2px, rgba(0,245,160,0.012) 4px);
+  pointer-events: none; z-index: 9999;
+}
+
+/* Grid background */
+.grid-bg {
+  position: fixed; inset: 0; z-index: 0;
+  background:
+    linear-gradient(rgba(0,245,160,0.025) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(0,245,160,0.025) 1px, transparent 1px);
+  background-size: 48px 48px;
+  pointer-events: none;
+}
+
+h1, h2, h3 { font-family: var(--font-display); letter-spacing: 0.05em; }
+.mono { font-family: var(--font-mono); }
+
+.page { display: none; position: relative; z-index: 1; }
+.page.active { display: block; }
+
+/* ─── Navbar ─── */
+.navbar {
+  position: sticky; top: 0; z-index: 100;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 32px; height: 64px;
+  background: rgba(10, 12, 16, 0.95);
+  backdrop-filter: blur(20px);
+  border-bottom: 1px solid rgba(0, 245, 160, 0.1);
+  box-shadow: 0 1px 0 rgba(0,245,160,0.05), 0 4px 30px rgba(0,0,0,0.5);
+}
+.nav-brand {
+  display: flex; align-items: center; gap: 12px;
+  font-family: var(--font-display);
+  font-size: 22px; font-weight: 700; letter-spacing: 0.08em;
+  color: var(--accent);
+  text-shadow: 0 0 20px rgba(0,245,160,0.4);
+}
+.nav-brand .badge {
+  background: linear-gradient(135deg, #b347ff, #7c3aed);
+  color: #e8d5ff; font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 4px; letter-spacing: 0.1em;
+  font-family: var(--font-mono);
+}
+.nav-actions { display: flex; gap: 12px; align-items: center; }
+.nav-user { font-size: 13px; color: var(--text2); font-family: var(--font-mono); }
+
+/* ─── Buttons ─── */
+.btn {
+  display: inline-flex; align-items: center; gap: 8px;
+  padding: 12px 24px; border: none; border-radius: 10px;
+  font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  letter-spacing: 0.06em; cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  text-transform: uppercase; position: relative; overflow: hidden;
+}
+.btn-primary {
+  background: linear-gradient(135deg, #00f5a0 0%, #00c9ff 100%);
+  color: #0a0c10;
+  box-shadow: 0 0 20px rgba(0,245,160,0.2), 0 4px 15px rgba(0,0,0,0.4);
+  border: 1px solid rgba(0,245,160,0.3);
+  animation: glow-pulse 2s ease-in-out infinite;
+}
+.btn-primary:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 0 35px rgba(0,245,160,0.35), 0 8px 25px rgba(0,0,0,0.5);
+}
+.btn-danger {
+  background: linear-gradient(135deg, #ff3864 0%, #c41e3a 100%);
+  color: #fff;
+  box-shadow: 0 0 20px rgba(255,56,100,0.2), 0 4px 15px rgba(0,0,0,0.4);
+  border: 1px solid rgba(255,56,100,0.3);
+}
+.btn-danger:hover { transform: translateY(-2px); box-shadow: 0 0 35px rgba(255,56,100,0.35); }
+.btn-ghost {
+  background: rgba(255,255,255,0.04);
+  color: var(--text2);
+  border: 1px solid rgba(255,255,255,0.08);
+}
+.btn-ghost:hover { background: rgba(0,245,160,0.06); color: var(--accent); border-color: rgba(0,245,160,0.2); transform: translateY(-1px); }
+.btn-success {
+  background: linear-gradient(135deg, #00f5a0 0%, #00b37a 100%);
+  color: #0a0c10;
+  box-shadow: 0 0 20px rgba(0,245,160,0.2);
+  border: 1px solid rgba(0,245,160,0.3);
+}
+.btn-success:hover { transform: translateY(-2px); box-shadow: 0 0 35px rgba(0,245,160,0.3); }
+.btn-sm { padding: 8px 16px; font-size: 12px; }
+.btn-full { width: 100%; justify-content: center; }
+
+/* ─── AUTH PAGES ─── */
+.auth-container { min-height: 100vh; display: grid; grid-template-columns: 1fr 1fr; }
+.auth-left {
+  position: relative; overflow: hidden;
+  background: linear-gradient(160deg, #0d1117 0%, #0f1520 40%, #111827 100%);
+  display: flex; flex-direction: column; justify-content: center; padding: 60px;
+  border-right: 1px solid rgba(0,245,160,0.08);
+}
+.auth-left::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 70% 60% at 30% 40%, rgba(0,245,160,0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 80% 70%, rgba(0,201,255,0.05) 0%, transparent 55%);
+}
+.auth-hero-title {
+  font-family: var(--font-display);
+  font-size: 52px; font-weight: 700; line-height: 1.1; color: var(--text);
+  position: relative; z-index: 1;
+}
+.auth-hero-title span { color: var(--accent); text-shadow: 0 0 25px rgba(0,245,160,0.5); }
+.auth-hero-sub {
+  margin-top: 16px; font-size: 15px; color: var(--text2);
+  line-height: 1.7; max-width: 380px; position: relative; z-index: 1;
+}
+.auth-stats { display: flex; gap: 32px; margin-top: 48px; position: relative; z-index: 1; }
+.auth-stat { text-align: center; }
+.auth-stat .num {
+  font-family: var(--font-display); font-size: 36px; font-weight: 700;
+  color: var(--accent); text-shadow: 0 0 15px rgba(0,245,160,0.4);
+}
+.auth-stat .lbl { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; }
+
+/* Camera feed visual */
+.camera-visual {
+  margin-top: 40px; position: relative; z-index: 1;
+  border: 1px solid rgba(0,245,160,0.15); border-radius: 12px;
+  overflow: hidden; max-width: 420px;
+  box-shadow: 0 0 30px rgba(0,245,160,0.05), 0 8px 32px rgba(0,0,0,0.6);
+  animation: float 3s ease-in-out infinite;
+}
+.camera-bar {
+  background: rgba(10,12,16,0.95); padding: 8px 16px;
+  display: flex; align-items: center; gap: 10px;
+  font-size: 12px; color: var(--accent); font-family: var(--font-mono);
+  border-bottom: 1px solid rgba(0,245,160,0.1);
+}
+.cam-dot { width: 8px; height: 8px; border-radius: 50%; background: var(--accent); box-shadow: 0 0 6px rgba(0,245,160,0.8); animation: blink 1s infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+@keyframes pulse-box { 0%,100%{border-color:var(--accent2); box-shadow: 0 0 12px rgba(255,56,100,0.15) inset} 50%{border-color:rgba(255,56,100,0.3); box-shadow: none} }
+@keyframes scan { 0%{top:0%} 100%{top:100%} }
+@keyframes float {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-10px); }
+}
+@keyframes glow-pulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,245,160,0.2); }
+  50% { box-shadow: 0 0 40px rgba(0,245,160,0.4); }
+}
+@keyframes typing {
+  from { width: 0; }
+  to { width: 100%; }
+}
+@keyframes fadeInUp {
+  from { opacity: 0; transform: translateY(30px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+.camera-scene {
+  background: linear-gradient(180deg, #0d1117 0%, #111520 60%, #0d1117 100%);
+  height: 200px; position: relative; overflow: hidden;
+  display: flex; align-items: center; justify-content: center;
+}
+.detection-box {
+  border: 2px solid var(--accent2); position: absolute;
+  border-radius: 4px; padding: 4px 8px;
+  font-size: 11px; color: var(--accent2); font-family: var(--font-mono);
+  background: rgba(255,56,100,0.08);
+  animation: pulse-box 2s infinite;
+  top: 40px; left: 60px; width: 140px; height: 120px;
+  box-shadow: 0 0 12px rgba(255,56,100,0.15) inset;
+}
+.detection-box::before { content: '⚠ NO HELMET'; display: block; }
+@keyframes pulse-box { 0%,100%{border-color:var(--accent2); box-shadow: 0 0 12px rgba(255,56,100,0.15) inset} 50%{border-color:rgba(255,56,100,0.3); box-shadow: none} }
+.ok-box {
+  border: 2px solid var(--accent); position: absolute;
+  border-radius: 4px; font-size: 11px; color: var(--accent);
+  font-family: var(--font-mono); background: rgba(0,245,160,0.05);
+  top: 60px; right: 50px; width: 120px; height: 100px;
+  display: flex; align-items: flex-start; padding: 6px;
+  box-shadow: 0 0 12px rgba(0,245,160,0.1) inset;
+}
+.ok-box::before { content: '✓ HELMET OK'; }
+.scan-line {
+  position: absolute; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, transparent, var(--accent), transparent);
+  animation: scan 3s linear infinite; opacity: 0.5;
+}
+@keyframes scan { 0%{top:0%} 100%{top:100%} }
+
+/* Auth right (form) */
+.auth-right {
+  display: flex; align-items: center; justify-content: center;
+  padding: 40px;
+  background: linear-gradient(160deg, #0d1117 0%, #0f1520 100%);
+}
+.auth-form-card { width: 100%; max-width: 420px; animation: fadeInUp 0.8s ease-out; }
+.auth-tab-switcher {
+  display: flex; background: rgba(255,255,255,0.03);
+  border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 4px; gap: 4px; margin-bottom: 32px;
+}
+.auth-tab {
+  flex: 1; padding: 10px; border: none; border-radius: 8px;
+  background: transparent; color: var(--text2);
+  font-family: var(--font-display); font-size: 15px; font-weight: 600;
+  letter-spacing: 0.06em; cursor: pointer; transition: all 0.2s; text-transform: uppercase;
+}
+.auth-tab.active {
+  background: linear-gradient(135deg, rgba(0,245,160,0.15), rgba(0,201,255,0.1));
+  color: var(--accent);
+  border: 1px solid rgba(0,245,160,0.2);
+  text-shadow: 0 0 10px rgba(0,245,160,0.4);
+}
+.form-title { font-size: 28px; font-weight: 700; margin-bottom: 6px; color: var(--text); }
+.form-sub { font-size: 14px; color: var(--text2); margin-bottom: 28px; }
+.form-group { margin-bottom: 18px; }
+.form-label {
+  display: block; font-size: 11px; font-weight: 600; color: var(--text3);
+  margin-bottom: 8px; text-transform: uppercase; letter-spacing: 0.12em;
+  font-family: var(--font-mono);
+}
+.form-input {
+  width: 100%; padding: 14px 18px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; color: var(--text);
+  font-family: var(--font-body); font-size: 15px;
+  transition: all 0.3s; outline: none;
+}
+.form-input:focus {
+  border-color: rgba(0,245,160,0.3);
+  box-shadow: 0 0 0 3px rgba(0,245,160,0.08), 0 0 15px rgba(0,245,160,0.05);
+  background: rgba(0,245,160,0.03);
+}
+.form-input.uppercase { text-transform: uppercase; letter-spacing: 0.1em; }
+.form-input::placeholder { color: var(--text3); }
+.form-input option { background: #111520; color: var(--text); }
+.form-error {
+  background: rgba(255,56,100,0.08); border: 1px solid rgba(255,56,100,0.2);
+  color: #ff3864; padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; margin-bottom: 16px; display: none;
+}
+.form-success {
+  background: rgba(0,245,160,0.08); border: 1px solid rgba(0,245,160,0.2);
+  color: var(--accent); padding: 12px 16px; border-radius: 10px;
+  font-size: 13px; margin-bottom: 16px; display: none;
+}
+
+/* ─── DASHBOARD ─── */
+.dashboard-layout { display: grid; grid-template-columns: 250px 1fr; min-height: calc(100vh - 64px); }
+.sidebar {
+  background: rgba(10,12,16,0.98);
+  border-right: 1px solid rgba(0,245,160,0.07);
+  padding: 24px 0;
+  position: sticky; top: 64px; height: calc(100vh - 64px);
+  overflow-y: auto;
+}
+.sidebar-section { padding: 8px 14px; }
+.sidebar-label {
+  font-size: 10px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: 0.15em; font-family: var(--font-mono);
+  margin-bottom: 8px; padding: 0 8px;
+}
+.nav-item {
+  display: flex; align-items: center; gap: 12px;
+  padding: 10px 12px; border-radius: 8px; cursor: pointer;
+  color: var(--text2); font-size: 14px; font-weight: 500;
+  transition: all 0.15s; margin-bottom: 2px;
+  border: 1px solid transparent;
+}
+.nav-item:hover { background: rgba(0,245,160,0.05); color: var(--accent); border-color: rgba(0,245,160,0.08); }
+.nav-item.active {
+  background: rgba(0,245,160,0.08); color: var(--accent);
+  border-color: rgba(0,245,160,0.15);
+  box-shadow: inset 2px 0 0 var(--accent);
+}
+.nav-item .icon { font-size: 16px; width: 20px; text-align: center; }
+.nav-badge {
+  margin-left: auto; background: rgba(255,56,100,0.15);
+  color: var(--accent2); font-size: 10px; font-weight: 700;
+  padding: 2px 6px; border-radius: 10px; font-family: var(--font-mono);
+  border: 1px solid rgba(255,56,100,0.2);
+}
+
+/* Main content */
+.main-content { padding: 32px; overflow-y: auto; background: #0a0c10; }
+.page-header { margin-bottom: 28px; }
+.page-header h2 { font-size: 28px; font-weight: 700; color: var(--text); }
+.page-header p { font-size: 14px; color: var(--text2); margin-top: 4px; }
+
+/* Stats grid */
+.stats-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 16px; margin-bottom: 28px; }
+.stat-card {
+  background: var(--surface2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 14px; padding: 20px;
+  transition: all 0.3s ease; position: relative; overflow: hidden;
+}
+.stat-card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+  background: linear-gradient(90deg, var(--accent), var(--accent3));
+  opacity: 0.7;
+}
+.stat-card:hover { transform: translateY(-3px); border-color: rgba(0,245,160,0.1); box-shadow: 0 8px 30px rgba(0,0,0,0.4), 0 0 15px rgba(0,245,160,0.04); }
+.stat-card.danger::before { background: linear-gradient(90deg, var(--accent2), #ff6b8a); }
+.stat-card.success::before { background: linear-gradient(90deg, var(--accent3), #7df8ff); }
+.stat-card.danger { border-color: rgba(255,56,100,0.1); }
+.stat-card.success { border-color: rgba(0,201,255,0.1); }
+.stat-label { font-size: 11px; color: var(--text3); text-transform: uppercase; letter-spacing: 0.1em; font-family: var(--font-mono); margin-bottom: 8px; }
+.stat-value { font-family: var(--font-display); font-size: 36px; font-weight: 700; color: var(--text); }
+.stat-value.yellow { color: var(--accent5); text-shadow: 0 0 15px rgba(255,170,0,0.3); }
+.stat-value.red { color: var(--accent2); text-shadow: 0 0 15px rgba(255,56,100,0.3); }
+.stat-value.green { color: var(--accent); text-shadow: 0 0 15px rgba(0,245,160,0.3); }
+.stat-value.purple { color: var(--accent4); text-shadow: 0 0 15px rgba(179,71,255,0.3); }
+.stat-value.orange { color: #ff8c42; }
+.stat-sub { font-size: 12px; color: var(--text3); margin-top: 4px; }
+
+/* Cards */
+.card {
+  background: var(--surface2);
+  border: 1px solid rgba(255,255,255,0.05);
+  border-radius: 16px; padding: 24px; margin-bottom: 20px;
+  transition: all 0.3s ease; position: relative; overflow: hidden;
+  animation: scaleIn 0.5s ease-out;
+}
+.card::before {
+  content: ''; position: absolute; top: 0; left: 0; right: 0; height: 1px;
+  background: linear-gradient(90deg, transparent, rgba(0,245,160,0.3), rgba(0,201,255,0.2), transparent);
+}
+.card:hover { border-color: rgba(0,245,160,0.08); }
+.card.hologram { animation: hologram 3s ease-in-out infinite; }
+.card-title {
+  font-family: var(--font-display); font-size: 16px; font-weight: 700;
+  margin-bottom: 20px; display: flex; align-items: center; gap: 10px;
+  padding-bottom: 14px; border-bottom: 1px solid rgba(255,255,255,0.05);
+  color: var(--accent); letter-spacing: 0.04em;
+}
+
+/* Challan table */
+.challan-table {
+  width: 100%; border-collapse: collapse;
+  background: transparent; border-radius: 12px; overflow: hidden;
+}
+.challan-table th {
+  text-align: left; padding: 14px 20px;
+  font-size: 11px; color: var(--text3); text-transform: uppercase;
+  letter-spacing: 0.12em; font-family: var(--font-mono);
+  border-bottom: 1px solid rgba(255,255,255,0.05);
+  background: rgba(255,255,255,0.02); font-weight: 600;
+}
+.challan-table td {
+  padding: 16px 20px; border-bottom: 1px solid rgba(255,255,255,0.04);
+  font-size: 14px; vertical-align: middle; color: var(--text);
+}
+.challan-table tr:hover td { background: rgba(0,245,160,0.03); }
+.challan-table tr:last-child td { border-bottom: none; }
+.badge-status {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 5px 10px; border-radius: 20px;
+  font-size: 11px; font-weight: 700; font-family: var(--font-mono);
+  text-transform: uppercase; letter-spacing: 0.05em;
+}
+.badge-unpaid {
+  background: rgba(255,56,100,0.1); color: #ff3864;
+  border: 1px solid rgba(255,56,100,0.2);
+}
+.badge-paid {
+  background: rgba(0,245,160,0.1); color: var(--accent);
+  border: 1px solid rgba(0,245,160,0.2);
+}
+.challan-num { font-family: var(--font-mono); font-size: 13px; color: var(--accent3); }
+.vehicle-tag {
+  background: rgba(179,71,255,0.1);
+  border: 1px solid rgba(179,71,255,0.2);
+  padding: 5px 10px; border-radius: 6px;
+  font-family: var(--font-mono); font-size: 12px; font-weight: 700;
+  color: #c77dff; letter-spacing: 0.08em;
+}
+.conf-bar { display: flex; align-items: center; gap: 10px; }
+.conf-track { flex: 1; height: 3px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; }
+.conf-fill { height: 100%; background: linear-gradient(90deg, var(--accent3), var(--accent)); border-radius: 2px; }
+
+/* Modal */
+.modal-overlay {
+  display: none; position: fixed; inset: 0; z-index: 1000;
+  background: rgba(0,0,0,0.7); backdrop-filter: blur(12px);
+  align-items: center; justify-content: center;
+}
+.modal-overlay.open { display: flex; }
+.modal-box {
+  background: #111520;
+  border: 1px solid rgba(0,245,160,0.15);
+  border-radius: 20px; padding: 32px; max-width: 700px;
+  width: 90%; max-height: 90vh; overflow-y: auto;
+  animation: modal-in 0.3s cubic-bezier(0.4,0,0.2,1), slideInFromBottom 0.4s ease-out;
+  box-shadow: 0 0 60px rgba(0,245,160,0.06), 0 25px 60px rgba(0,0,0,0.8);
+}
+@keyframes modal-in { from{opacity:0;transform:scale(0.93)} to{opacity:1;transform:scale(1)} }
+.modal-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 20px; }
+.modal-header h3 { font-size: 18px; font-weight: 700; color: var(--text); }
+.modal-close {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2); width: 34px; height: 34px; border-radius: 8px;
+  cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center;
+  transition: all 0.2s;
+}
+.modal-close:hover { background: rgba(255,56,100,0.15); color: var(--accent2); border-color: rgba(255,56,100,0.2); }
+.challan-detail-modal { max-width: 600px; width: 90%; }
+.challan-detail-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-top: 16px; }
+.challan-detail-grid .detail-item {
+  background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 10px; padding: 14px;
+  display: flex; flex-direction: column; gap: 6px;
+}
+.challan-detail-grid .detail-item label { font-size: 11px; color: var(--text3); font-family: var(--font-mono); text-transform: uppercase; font-weight: 600; }
+.challan-detail-grid .detail-item span { font-size: 15px; font-weight: 600; color: var(--text); }
+.challan-detail-grid .detail-item.full-width { grid-column: 1 / -1; }
+.evidence-image { width: 100%; border-radius: 8px; margin-top: 8px; border: 1px solid rgba(0,245,160,0.15); }
+.close-btn {
+  background: rgba(255,255,255,0.04); border: 1px solid rgba(255,255,255,0.08);
+  color: var(--text2); width: 32px; height: 32px; border-radius: 8px;
+  cursor: pointer; font-size: 18px; display: flex; align-items: center; justify-content: center; transition: all 0.15s;
+}
+.close-btn:hover { background: rgba(255,56,100,0.15); color: var(--accent2); }
+.detection-img { width: 100%; border-radius: 10px; margin: 12px 0; border: 1px solid rgba(255,56,100,0.3); }
+.detail-item { background: rgba(255,255,255,0.03); border-radius: 8px; padding: 14px; border: 1px solid rgba(255,255,255,0.05); }
+.detail-key { font-size: 11px; color: var(--text3); font-family: var(--font-mono); text-transform: uppercase; margin-bottom: 6px; }
+.detail-val { font-size: 15px; font-weight: 600; color: var(--text); }
+.fine-val { color: var(--accent); font-size: 22px; font-family: var(--font-display); text-shadow: 0 0 15px rgba(0,245,160,0.3); }
+
+/* ─── CHECK CHALLAN PAGE ─── */
+.check-page { max-width: 800px; margin: 0 auto; }
+.search-bar { display: flex; gap: 12px; margin-bottom: 28px; }
+.search-input-wrap { position: relative; flex: 1; }
+.search-icon { position: absolute; left: 16px; top: 50%; transform: translateY(-50%); font-size: 18px; color: var(--text3); }
+.search-input {
+  width: 100%; padding: 14px 16px 14px 46px;
+  background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; color: var(--text); font-size: 16px;
+  font-family: var(--font-mono); text-transform: uppercase; letter-spacing: 0.1em;
+  outline: none; transition: all 0.2s;
+}
+.search-input:focus { border-color: rgba(0,245,160,0.3); box-shadow: 0 0 0 3px rgba(0,245,160,0.08); }
+.search-input::placeholder { text-transform: none; letter-spacing: 0; color: var(--text3); }
+.vehicle-result-header {
+  background: var(--surface2); border: 1px solid rgba(255,255,255,0.06);
+  border-radius: 12px; padding: 24px;
+  display: flex; align-items: center; gap: 20px; margin-bottom: 20px;
+}
+.vehicle-icon { font-size: 48px; }
+.vehicle-info h3 { font-size: 26px; font-family: var(--font-mono); font-weight: 700; color: var(--accent3); letter-spacing: 0.15em; }
+.vehicle-info p { font-size: 14px; color: var(--text2); margin-top: 4px; }
+.fine-summary { margin-left: auto; text-align: right; }
+.fine-summary .amount { font-family: var(--font-display); font-size: 34px; font-weight: 700; color: var(--accent2); text-shadow: 0 0 15px rgba(255,56,100,0.3); }
+.fine-summary .label { font-size: 11px; color: var(--text2); font-family: var(--font-mono); }
+
+/* ─── DETECTION TOOL ─── */
+.detection-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 20px; }
+.drop-zone {
+  border: 1px dashed rgba(0,245,160,0.2); border-radius: 12px;
+  padding: 40px 24px; text-align: center; cursor: pointer;
+  transition: all 0.2s; background: rgba(0,245,160,0.02);
+}
+.drop-zone:hover, .drop-zone.dragover { border-color: var(--accent); background: rgba(0,245,160,0.05); }
+.drop-zone .dz-icon { font-size: 48px; margin-bottom: 12px; }
+.drop-zone h4 { font-size: 16px; font-weight: 600; color: var(--text); margin-bottom: 6px; }
+.drop-zone p { font-size: 13px; color: var(--text2); }
+.preview-area {
+  border-radius: 12px; overflow: hidden;
+  background: rgba(255,255,255,0.02); min-height: 200px;
+  display: flex; align-items: center; justify-content: center;
+  border: 1px solid rgba(255,255,255,0.06);
+}
+.preview-area img { width: 100%; display: block; }
+.detection-result { margin-top: 20px; padding: 20px; border-radius: 12px; }
+.detection-result.danger { background: rgba(255,56,100,0.06); border: 1px solid rgba(255,56,100,0.2); }
+.detection-result.safe { background: rgba(0,245,160,0.05); border: 1px solid rgba(0,245,160,0.2); }
+.result-title { font-family: var(--font-display); font-size: 20px; font-weight: 700; display: flex; align-items: center; gap: 10px; }
+.result-title.red { color: var(--accent2); text-shadow: 0 0 15px rgba(255,56,100,0.4); }
+.result-title.green { color: var(--accent); text-shadow: 0 0 15px rgba(0,245,160,0.4); }
+
+/* ─── LOADING ─── */
+.loading-overlay {
+  display: none; position: fixed; inset: 0; z-index: 500;
+  background: rgba(0,0,0,0.8); backdrop-filter: blur(8px);
+  align-items: center; justify-content: center; flex-direction: column; gap: 16px;
+}
+.loading-overlay.show { display: flex; }
+.spinner {
+  width: 44px; height: 44px;
+  border: 2px solid rgba(0,245,160,0.1);
+  border-top-color: var(--accent);
+  border-right-color: rgba(0,201,255,0.5);
+  border-radius: 50%; animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+.loading-text { font-family: var(--font-mono); font-size: 13px; color: var(--accent); letter-spacing: 0.08em; }
+
+/* ─── INTRO ─── */
+.intro-overlay {
+  position: fixed; inset: 0; z-index: 10000;
+  background: #0a0c10;
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  animation: intro-fade-in 0.5s ease-out;
+}
+.intro-overlay::before {
+  content: '';
+  position: absolute; inset: 0;
+  background:
+    radial-gradient(ellipse 80% 60% at 50% 40%, rgba(0,245,160,0.06) 0%, transparent 65%),
+    radial-gradient(ellipse 50% 40% at 20% 70%, rgba(0,201,255,0.04) 0%, transparent 55%),
+    radial-gradient(ellipse 40% 30% at 80% 20%, rgba(179,71,255,0.04) 0%, transparent 50%);
+}
+@keyframes intro-fade-in { from{opacity:0} to{opacity:1} }
+.intro-content { text-align: center; position: relative; z-index: 1; animation: intro-content-appear 0.6s ease-out 0.3s both; }
+@keyframes intro-content-appear { 0%{opacity:0;transform:scale(0.9) translateY(20px)} 100%{opacity:1;transform:scale(1) translateY(0)} }
+.intro-logo { font-size: 72px; margin-bottom: 20px; animation: logo-pulse 2s ease-in-out infinite; }
+@keyframes logo-pulse { 0%,100%{transform:scale(1)} 50%{transform:scale(1.05)} }
+.intro-title {
+  font-family: var(--font-display); font-size: 52px; font-weight: 700;
+  color: var(--text); margin-bottom: 8px; letter-spacing: 0.12em;
+  animation: title-slide-up 0.6s ease-out 0.6s both;
+}
+@keyframes title-slide-up { 0%{opacity:0;transform:translateY(30px)} 100%{opacity:1;transform:translateY(0)} }
+.intro-subtitle {
+  font-size: 16px; color: var(--accent); font-weight: 500;
+  margin-bottom: 40px; font-family: var(--font-mono); letter-spacing: 0.12em;
+  text-shadow: 0 0 20px rgba(0,245,160,0.5);
+  animation: subtitle-fade 0.6s ease-out 0.9s both;
+}
+@keyframes subtitle-fade { 0%{opacity:0} 100%{opacity:1} }
+.intro-progress { width: 320px; height: 2px; background: rgba(255,255,255,0.06); border-radius: 2px; overflow: hidden; animation: progress-appear 0.3s ease-out 1.2s both; }
+@keyframes progress-appear { 0%{opacity:0;transform:scaleX(0)} 100%{opacity:1;transform:scaleX(1)} }
+.intro-progress-fill {
+  height: 100%;
+  background: linear-gradient(90deg, var(--accent), var(--accent3), var(--accent4));
+  border-radius: 2px; animation: progress-fill 2s ease-out 1.8s both;
+}
+@keyframes progress-fill { 0%{width:0%} 100%{width:100%} }
+.intro-overlay.hide { animation: intro-fade-out 0.5s ease-in 3.5s both; }
+@keyframes intro-fade-out { 0%{opacity:1} 100%{opacity:0;visibility:hidden} }
+
+/* ─── UNIQUE ANIMATIONS ─── */
+@keyframes slideInFromBottom {
+  0% { transform: translateY(100px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideInFromTop {
+  0% { transform: translateY(-100px); opacity: 0; }
+  100% { transform: translateY(0); opacity: 1; }
+}
+
+@keyframes slideInFromLeft {
+  0% { transform: translateX(-100px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes slideInFromRight {
+  0% { transform: translateX(100px); opacity: 0; }
+  100% { transform: translateX(0); opacity: 1; }
+}
+
+@keyframes scaleIn {
+  0% { transform: scale(0.8); opacity: 0; }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes bounceIn {
+  0% { transform: scale(0.3); opacity: 0; }
+  50% { transform: scale(1.05); }
+  70% { transform: scale(0.9); }
+  100% { transform: scale(1); opacity: 1; }
+}
+
+@keyframes glowPulse {
+  0%, 100% { box-shadow: 0 0 20px rgba(0,245,160,0.2); }
+  50% { box-shadow: 0 0 40px rgba(0,245,160,0.4), 0 0 60px rgba(0,245,160,0.2); }
+}
+
+@keyframes shake {
+  0%, 100% { transform: translateX(0); }
+  10%, 30%, 50%, 70%, 90% { transform: translateX(-5px); }
+  20%, 40%, 60%, 80% { transform: translateX(5px); }
+}
+
+@keyframes successPulse {
+  0% { background: rgba(0,245,160,0.1); transform: scale(1); }
+  50% { background: rgba(0,245,160,0.2); transform: scale(1.02); }
+  100% { background: rgba(0,245,160,0.1); transform: scale(1); }
+}
+
+@keyframes errorPulse {
+  0% { background: rgba(255,56,100,0.1); transform: scale(1); }
+  50% { background: rgba(255,56,100,0.2); transform: scale(1.02); }
+  100% { background: rgba(255,56,100,0.1); transform: scale(1); }
+}
+
+@keyframes dataLoad {
+  0% { opacity: 0; transform: translateY(20px) scale(0.95); }
+  100% { opacity: 1; transform: translateY(0) scale(1); }
+}
+
+@keyframes cardFlip {
+  0% { transform: rotateY(0deg); }
+  50% { transform: rotateY(90deg); }
+  100% { transform: rotateY(0deg); }
+}
+
+@keyframes typewriter {
+  from { width: 0; }
+  to { width: 100%; }
+}
+
+@keyframes matrixRain {
+  0% { transform: translateY(-100vh); opacity: 1; }
+  100% { transform: translateY(100vh); opacity: 0; }
+}
+
+@keyframes hologram {
+  0%, 100% { opacity: 0.8; filter: hue-rotate(0deg); }
+  25% { opacity: 1; filter: hue-rotate(90deg); }
+  50% { opacity: 0.9; filter: hue-rotate(180deg); }
+  75% { opacity: 0.95; filter: hue-rotate(270deg); }
+}
+
+@keyframes neuralNetwork {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
+
+/* Matrix rain effect for background */
+.matrix-rain {
+  position: fixed; inset: 0; pointer-events: none; z-index: 0;
+  overflow: hidden;
+}
+.matrix-rain::before {
+  content: '0101001001010010010100100101001001010010';
+  position: absolute; top: -100px; left: 10%;
+  font-family: var(--font-mono); font-size: 14px; color: var(--accent);
+  opacity: 0.1; animation: matrixRain 8s linear infinite;
+}
+.matrix-rain::after {
+  content: '01101000011001010110110001101101';
+  position: absolute; top: -100px; right: 15%;
+  font-family: var(--font-mono); font-size: 12px; color: var(--accent3);
+  opacity: 0.08; animation: matrixRain 12s linear infinite 2s;
+}
+
+/* Hologram effect for cards */
+.hologram-card {
+  position: relative; overflow: hidden;
+}
+.hologram-card::before {
+  content: ''; position: absolute; inset: 0;
+  background: linear-gradient(45deg, transparent, rgba(0,245,160,0.1), transparent);
+  animation: hologram 3s ease-in-out infinite;
+}
+
+/* Neural network background for detection area */
+.neural-bg {
+  background: linear-gradient(45deg, #0a0c10, #0d1117, #0a0c10);
+  background-size: 400% 400%;
+  animation: neuralNetwork 15s ease infinite;
+}
+
+/* Typewriter effect for loading text */
+.typewriter {
+  overflow: hidden; border-right: 2px solid var(--accent);
+  white-space: nowrap; animation: typewriter 2s steps(20) infinite;
+}
+
+/* Data loading animation for tables */
+.data-row {
+  animation: dataLoad 0.5s ease-out both;
+}
+.data-row:nth-child(1) { animation-delay: 0.1s; }
+.data-row:nth-child(2) { animation-delay: 0.2s; }
+.data-row:nth-child(3) { animation-delay: 0.3s; }
+.data-row:nth-child(4) { animation-delay: 0.4s; }
+.data-row:nth-child(5) { animation-delay: 0.5s; }
+
+/* Success/Error animations for forms */
+.form-success.animate { animation: successPulse 1s ease-out; }
+.form-error.animate { animation: errorPulse 1s ease-out; }
+
+/* Shake animation for invalid inputs */
+.shake { animation: shake 0.5s ease-in-out; }
+
+/* Glow pulse for active elements */
+.glow-pulse { animation: glowPulse 2s ease-in-out infinite; }
+
+/* Bounce in for new content */
+.bounce-in { animation: bounceIn 0.6s ease-out; }
+
+/* Slide animations for page transitions */
+.slide-in-bottom { animation: slideInFromBottom 0.5s ease-out; }
+.slide-in-top { animation: slideInFromTop 0.5s ease-out; }
+.slide-in-left { animation: slideInFromLeft 0.5s ease-out; }
+.slide-in-right { animation: slideInFromRight 0.5s ease-out; }
+.scale-in { animation: scaleIn 0.4s ease-out; }
+
+/* Card flip animation */
+.flip-card { animation: cardFlip 0.6s ease-in-out; }
+
+/* ─── TOAST ─── */
+.toast-container { position: fixed; top: 80px; right: 24px; z-index: 2000; display: flex; flex-direction: column; gap: 10px; }
+.toast {
+  background: var(--surface2); border: 1px solid rgba(255,255,255,0.08);
+  border-radius: 10px; padding: 14px 18px; min-width: 300px;
+  display: flex; align-items: center; gap: 12px; font-size: 14px;
+  animation: toast-in 0.3s ease; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  color: var(--text);
+}
+@keyframes toast-in { from{opacity:0;transform:translateX(30px)} to{opacity:1;transform:translateX(0)} }
+.toast.success { border-color: rgba(0,245,160,0.2); }
+.toast.error { border-color: rgba(255,56,100,0.2); }
+
+/* ─── CAMERA ─── */
+.camera-container {
+  position: relative; border-radius: 12px; overflow: hidden;
+  background: #0d1117; border: 1px solid rgba(0,245,160,0.1);
+  aspect-ratio: 16/9;
+}
+.camera-container video, .camera-container canvas { width: 100%; height: 100%; object-fit: cover; }
+.camera-overlay { position: absolute; inset: 0; pointer-events: none; }
+.corner { position: absolute; width: 20px; height: 20px; border-color: var(--accent); border-style: solid; }
+.corner.tl { top: 10px; left: 10px; border-width: 2px 0 0 2px; }
+.corner.tr { top: 10px; right: 10px; border-width: 2px 2px 0 0; }
+.corner.bl { bottom: 10px; left: 10px; border-width: 0 0 2px 2px; }
+.corner.br { bottom: 10px; right: 10px; border-width: 0 2px 2px 0; }
+.cam-label {
+  position: absolute; top: 14px; left: 50%; transform: translateX(-50%);
+  background: rgba(0,0,0,0.8); padding: 4px 14px; border-radius: 20px;
+  font-family: var(--font-mono); font-size: 11px; color: var(--accent);
+  display: flex; align-items: center; gap: 6px;
+  border: 1px solid rgba(0,245,160,0.15);
+}
+
+/* ─── EMPTY STATE ─── */
+.empty-state { text-align: center; padding: 60px 24px; color: var(--text2); }
+.empty-state .es-icon { font-size: 56px; margin-bottom: 16px; opacity: 0.3; }
+.empty-state h3 { font-size: 20px; color: var(--text); margin-bottom: 8px; }
+.empty-state p { font-size: 14px; }
+
+/* Vehicle Statistics */
+.vehicle-stats-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 16px; margin-bottom: 20px; }
+.vehicle-stat-card {
+  text-align: center; padding: 20px;
+  background: rgba(255,255,255,0.02);
+  border-radius: 12px; border: 1px solid rgba(255,255,255,0.05);
+  transition: all 0.3s ease;
+}
+.vehicle-stat-card:hover { border-color: rgba(0,245,160,0.1); background: rgba(0,245,160,0.03); transform: translateY(-3px); }
+.vehicle-stat-value { font-size: 36px; font-weight: 700; margin-bottom: 8px; }
+.vehicle-stat-label { font-size: 13px; color: var(--text2); }
+.vehicle-challan-item {
+  display: flex; justify-content: space-between; align-items: center;
+  padding: 14px; background: rgba(255,255,255,0.02);
+  border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);
+  margin-bottom: 8px; transition: all 0.2s ease;
+}
+.vehicle-challan-item:hover { border-color: rgba(0,245,160,0.1); background: rgba(0,245,160,0.03); transform: translateX(3px); }
+
+/* Public check page */
+#publicCheckPage {
+  min-height: 100vh;
+  background: #0a0c10;
+}
+
+/* Responsive */
+@media (max-width: 900px) {
+  .auth-container { grid-template-columns: 1fr; }
+  .auth-left { display: none; }
+  .dashboard-layout { grid-template-columns: 1fr; }
+  .sidebar { display: none; }
+  .stats-grid { grid-template-columns: 1fr 1fr; }
+  .detection-grid { grid-template-columns: 1fr; }
+  .challan-detail-grid { grid-template-columns: 1fr; }
+}
+</style>
+</head>
+<body>
+
+<div class="grid-bg"></div>
+<div class="matrix-rain"></div>
+
+<!-- ─── INTRO ─── -->
+<div class="intro-overlay" id="introOverlay">
+  <div class="intro-content">
+    <div class="intro-logo">🛡️</div>
+    <div class="intro-title">TRAFFICSHIELD</div>
+    <div class="intro-subtitle">AI HELMET DETECTION SYSTEM</div>
+    <div class="intro-progress">
+      <div class="intro-progress-fill"></div>
+    </div>
+  </div>
+</div>
+
+<!-- ─── LOADING ─── -->
+<div class="loading-overlay" id="loadingOverlay">
+  <div class="spinner"></div>
+  <div class="loading-text typewriter" id="loadingText">PROCESSING...</div>
+</div>
+
+<!-- ─── TOASTS ─── -->
+<div class="toast-container" id="toastContainer"></div>
+
+<!-- ─── IMAGE MODAL ─── -->
+<div class="modal-overlay" id="imageModal">
+  <div class="modal-box">
+    <div class="modal-header">
+      <h3>🚨 Violation Detected</h3>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div id="modalContent"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- AUTH PAGE -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="page active" id="authPage">
+  <div class="auth-container">
+    <div class="auth-left">
+      <div class="auth-hero-title">
+        AI-BASED<br><span>HELMET DETECTION</span><br>SYSTEM
+      </div>
+      <p class="auth-hero-sub">
+        AI-powered helmet detection system that monitors road traffic in real time and automatically issues challans to riders without helmets.
+      </p>
+      <div class="auth-stats">
+        <div class="auth-stat"><div class="num" id="statTotal">0</div><div class="lbl">Challans<br>Issued</div></div>
+        <div class="auth-stat"><div class="num" id="statCameras">12</div><div class="lbl">Cameras<br>Active</div></div>
+        <div class="auth-stat"><div class="num">96%</div><div class="lbl">Detection<br>Accuracy</div></div>
+      </div>
+      <div class="camera-visual">
+        <div class="camera-bar"><div class="cam-dot"></div>CAM-001 · LIVE · MG ROAD</div>
+        <div class="camera-scene">
+          <div class="scan-line"></div>
+          <div class="detection-box"></div>
+          <div class="ok-box"></div>
+        </div>
+      </div>
+    </div>
+
+    <div class="auth-right">
+      <div class="auth-form-card">
+        <div class="auth-tab-switcher">
+          <button class="auth-tab active" onclick="switchAuthTab('login')">Login</button>
+          <button class="auth-tab" onclick="switchAuthTab('register')">Register</button>
+        </div>
+
+        <!-- LOGIN FORM -->
+        <div id="loginForm">
+          <h2 class="form-title">Welcome back</h2>
+          <p class="form-sub">Sign in to check your challans and violations</p>
+          <div class="form-error" id="loginError"></div>
+          <div class="form-success" id="loginSuccess"></div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" id="loginEmail" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="loginPassword" placeholder="••••••••">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doLogin()">🔐 Sign In</button>
+          <div style="margin: 20px 0; text-align: center; color: var(--text3); font-size: 13px;">— or —</div>
+          <div style="background: rgba(255,255,255,0.02); border: 1px solid rgba(255,255,255,0.06); border-radius: 10px; padding: 16px;">
+            <div style="font-size: 11px; color: var(--text3); margin-bottom: 12px; font-family: var(--font-mono); letter-spacing: 0.1em;">⚡ DEMO ACCOUNTS</div>
+            <button class="btn btn-ghost btn-full btn-sm" style="margin-bottom: 8px" onclick="fillDemo('rider@demo.com','demo123')">🏍️ Rider Account (with challans)</button>
+            <button class="btn btn-ghost btn-full btn-sm" onclick="fillDemo('admin@demo.com','demo123')">👮 Traffic Admin Account</button>
+          </div>
+        </div>
+
+        <!-- REGISTER FORM -->
+        <div id="registerForm" style="display:none">
+          <h2 class="form-title">Create account</h2>
+          <p class="form-sub">Register to manage and pay your challans online</p>
+          <div class="form-error" id="registerError"></div>
+          <div class="form-success" id="registerSuccess"></div>
+          <div class="form-group">
+            <label class="form-label">Full Name</label>
+            <input type="text" class="form-input" id="regName" placeholder="Ravi Kumar">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Email Address</label>
+            <input type="email" class="form-input" id="regEmail" placeholder="your@email.com">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Vehicle Number</label>
+            <input type="text" class="form-input uppercase" id="regVehicle" placeholder="MH12AB1234" maxlength="15">
+          </div>
+          <div class="form-group">
+            <label class="form-label">Password</label>
+            <input type="password" class="form-input" id="regPassword" placeholder="Create a password">
+          </div>
+          <button class="btn btn-primary btn-full" onclick="doRegister()">🚀 Create Account</button>
+        </div>
+
+        <div style="margin-top: 20px; border-top: 1px solid rgba(255,255,255,0.06); padding-top: 20px;">
+          <p style="font-size: 13px; color: var(--text2); text-align: center;">
+            Check challan without login →
+            <a href="#" onclick="goToPublicCheck()" style="color: var(--accent); text-decoration: none; font-weight: 600;">Challan Lookup</a>
+          </p>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- PUBLIC CHALLAN CHECK PAGE -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="page" id="publicCheckPage">
+  <div style="padding: 32px; max-width: 800px; margin: 0 auto;">
+    <div style="display: flex; align-items: center; gap: 16px; margin-bottom: 32px;">
+      <button class="btn btn-ghost btn-sm" onclick="showPage('authPage')">← Back to Login</button>
+      <div>
+        <h2 style="font-size: 24px; font-family: var(--font-display); color: var(--text);">🔍 Challan Lookup</h2>
+        <p style="font-size: 13px; color: var(--text2);">Enter your vehicle number to check pending challans</p>
+      </div>
+    </div>
+    <div class="search-bar">
+      <div class="search-input-wrap">
+        <span class="search-icon">🏍️</span>
+        <input type="text" class="search-input" id="publicVehicle" placeholder="Enter vehicle number (e.g. MH12AB1234)" maxlength="15">
+      </div>
+      <button class="btn btn-primary" onclick="checkPublicChallan()">CHECK</button>
+    </div>
+    <div id="publicResult"></div>
+  </div>
+</div>
+
+<!-- ═══════════════════════════════════════════════ -->
+<!-- DASHBOARD -->
+<!-- ═══════════════════════════════════════════════ -->
+<div class="page" id="dashboardPage">
+
+  <nav class="navbar">
+    <div class="nav-brand">
+      <span>🛡️</span>
+      TRAFFICSHIELD
+      <span class="badge">AI</span>
+    </div>
+    <div class="nav-actions">
+      <span class="nav-user" id="navUser">—</span>
+      <span class="nav-user" style="font-size: 11px; color: var(--accent); text-transform: uppercase; margin-right: 12px; font-family: var(--font-mono);" id="navRole">—</span>
+      <button class="btn btn-ghost btn-sm" onclick="doLogout()">Logout</button>
+    </div>
+  </nav>
+
+  <div class="dashboard-layout">
+    <aside class="sidebar">
+      <div class="sidebar-section">
+        <div class="sidebar-label">Main</div>
+        <div class="nav-item active" onclick="switchView('overview')" id="nav-overview"><span class="icon">📊</span> Overview</div>
+        <div class="nav-item" onclick="switchView('challans')" id="nav-challans"><span class="icon">📋</span> My Challans<span class="nav-badge" id="navBadge" style="display:none">0</span></div>
+        <div class="nav-item" onclick="switchView('check')" id="nav-check"><span class="icon">🔍</span> Challan Lookup</div>
+      </div>
+      <div class="sidebar-section admin-only" style="margin-top: 16px; display: none;">
+        <div class="sidebar-label">Admin Tools</div>
+        <div class="nav-item" onclick="switchView('detect')" id="nav-detect"><span class="icon">📸</span> Detection Tool</div>
+        <div class="nav-item" onclick="switchView('camera')" id="nav-camera"><span class="icon">📹</span> Live Camera</div>
+      </div>
+      <div class="sidebar-section" style="margin-top: 16px;">
+        <div class="sidebar-label">Account</div>
+        <div class="nav-item" onclick="switchView('profile')" id="nav-profile"><span class="icon">👤</span> Profile</div>
+      </div>
+    </aside>
+
+    <main class="main-content">
+
+      <!-- OVERVIEW VIEW -->
+      <div id="view-overview">
+        <div class="page-header">
+          <h2 id="overviewTitle">Dashboard Overview</h2>
+          <p id="overviewSubtitle">Traffic enforcement summary — <span id="todayDate"></span></p>
+        </div>
+        <div class="stats-grid">
+          <div class="stat-card slide-in-left"><div class="stat-label">Total Challans</div><div class="stat-value purple" id="ovTotalChallans">—</div><div class="stat-sub">All time</div></div>
+          <div class="stat-card danger slide-in-top" style="animation-delay: 0.1s;"><div class="stat-label">Unpaid</div><div class="stat-value red" id="ovUnpaid">—</div><div class="stat-sub">Pending payment</div></div>
+          <div class="stat-card slide-in-right" style="animation-delay: 0.2s;"><div class="stat-label">Fine Pending</div><div class="stat-value orange" id="ovFine">—</div><div class="stat-sub">₹ total unpaid</div></div>
+          <div class="stat-card success slide-in-bottom" style="animation-delay: 0.3s;"><div class="stat-label">Cameras Online</div><div class="stat-value green">12</div><div class="stat-sub">96% accuracy</div></div>
+        </div>
+
+        <div class="card" id="myVehicleCard">
+          <div class="card-title">🏍️ My Vehicle Status</div>
+          <div id="myVehicleContent">
+            <div class="empty-state"><div class="es-icon">🏍️</div><h3>No vehicle registered</h3><p>Go to Profile to add your vehicle number</p></div>
+          </div>
+        </div>
+
+        <div class="card hologram-card">
+          <div class="card-title">📊 Vehicle: MH12AB1234 Statistics</div>
+          <div id="vehicleStatsContent">
+            <div class="vehicle-stats-grid">
+              <div class="vehicle-stat-card"><div class="vehicle-stat-value" style="color: var(--accent3);" id="vehicleTotalChallans">0</div><div class="vehicle-stat-label">Total Challans</div></div>
+              <div class="vehicle-stat-card"><div class="vehicle-stat-value" style="color: var(--accent2);" id="vehicleUnpaidChallans">0</div><div class="vehicle-stat-label">Unpaid Challans</div></div>
+              <div class="vehicle-stat-card"><div class="vehicle-stat-value" style="color: var(--accent);" id="vehiclePaidChallans">0</div><div class="vehicle-stat-label">Paid Challans</div></div>
+              <div class="vehicle-stat-card"><div class="vehicle-stat-value" style="color: var(--accent5);" id="vehicleTotalFines">₹0</div><div class="vehicle-stat-label">Total Fines</div></div>
+            </div>
+            <div style="background: rgba(255,255,255,0.02); border-radius: 10px; padding: 16px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 13px; color: var(--text2); margin-bottom: 12px; font-family: var(--font-mono);">🚨 Recent Challans for MH12AB1234</div>
+              <div id="vehicleRecentChallans">
+                <div style="display: flex; flex-direction: column; gap: 10px;">
+                  <div class="vehicle-challan-item">
+                    <div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">CH20241201001</div><div style="font-size: 12px; color: var(--text3);">FC Road, Pune · 94% confidence</div></div>
+                    <div style="text-align: right;"><div style="font-weight: 700; color: var(--accent2);">₹500</div><div style="font-size: 11px; background: rgba(255,56,100,0.1); color: var(--accent2); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(255,56,100,0.2);">Unpaid</div></div>
+                  </div>
+                  <div class="vehicle-challan-item">
+                    <div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">CH20241130002</div><div style="font-size: 12px; color: var(--text3);">MG Road, Bangalore · 88% confidence</div></div>
+                    <div style="text-align: right;"><div style="font-weight: 700; color: var(--accent);">₹500</div><div style="font-size: 11px; background: rgba(0,245,160,0.1); color: var(--accent); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(0,245,160,0.2);">Paid</div></div>
+                  </div>
+                  <div class="vehicle-challan-item">
+                    <div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">CH20241129003</div><div style="font-size: 12px; color: var(--text3);">Bandra, Mumbai · 96% confidence</div></div>
+                    <div style="text-align: right;"><div style="font-weight: 700; color: var(--accent2);">₹500</div><div style="font-size: 11px; background: rgba(255,56,100,0.1); color: var(--accent2); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(255,56,100,0.2);">Unpaid</div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card" id="adminDashboardCard" style="display: none;">
+          <div class="card-title">👮 Admin Dashboard</div>
+          <div style="padding: 8px 0;">
+            <div style="background: rgba(255,255,255,0.02); border-radius: 10px; padding: 16px; margin-bottom: 16px; border: 1px solid rgba(255,255,255,0.05);">
+              <div style="font-size: 12px; color: var(--text3); margin-bottom: 12px; font-family: var(--font-mono); letter-spacing: 0.1em;">📊 SYSTEM OVERVIEW</div>
+              <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
+                <div style="text-align: center; padding: 14px; background: rgba(0,201,255,0.05); border-radius: 8px; border: 1px solid rgba(0,201,255,0.1);">
+                  <div style="font-size: 28px; font-weight: 700; color: var(--accent3); font-family: var(--font-display);">24</div>
+                  <div style="font-size: 12px; color: var(--text3);">Challans Today</div>
+                </div>
+                <div style="text-align: center; padding: 14px; background: rgba(255,56,100,0.05); border-radius: 8px; border: 1px solid rgba(255,56,100,0.1);">
+                  <div style="font-size: 28px; font-weight: 700; color: var(--accent2); font-family: var(--font-display);">18</div>
+                  <div style="font-size: 12px; color: var(--text3);">Unpaid</div>
+                </div>
+              </div>
+            </div>
+            <div style="font-size: 12px; color: var(--text3); margin-bottom: 10px; font-family: var(--font-mono); letter-spacing: 0.1em;">🚨 TODAY'S DETECTIONS</div>
+            <div style="display: flex; flex-direction: column; gap: 8px;">
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);"><div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">TN09BT9721</div><div style="font-size: 12px; color: var(--text3);">MG Road, Bangalore · 94% confidence</div></div><div style="text-align: right;"><div style="font-weight: 700; color: var(--accent2);">₹500</div><div style="font-size: 11px; background: rgba(255,56,100,0.1); color: var(--accent2); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(255,56,100,0.2);">Unpaid</div></div></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);"><div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">UNKNOWN</div><div style="font-size: 12px; color: var(--text3);">FC Road, Pune · 89% confidence</div></div><div style="text-align: right;"><div style="font-weight: 700; color: var(--accent2);">₹500</div><div style="font-size: 11px; background: rgba(255,56,100,0.1); color: var(--accent2); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(255,56,100,0.2);">Unpaid</div></div></div>
+              <div style="display: flex; justify-content: space-between; align-items: center; padding: 14px; background: rgba(255,255,255,0.02); border-radius: 8px; border: 1px solid rgba(255,255,255,0.05);"><div><div style="font-weight: 600; color: var(--accent3); font-family: var(--font-mono);">KA01AB1234</div><div style="font-size: 12px; color: var(--text3);">Bandra, Mumbai · 96% confidence</div></div><div style="text-align: right;"><div style="font-weight: 700; color: var(--accent);">₹500</div><div style="font-size: 11px; background: rgba(0,245,160,0.1); color: var(--accent); padding: 2px 8px; border-radius: 10px; display: inline-block; border: 1px solid rgba(0,245,160,0.2);">Paid</div></div></div>
+            </div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-title">🚨 Recent Detections System-wide</div>
+          <div id="recentDetections"><div class="empty-state"><div class="es-icon">📋</div><h3>No data</h3><p>Use Detection Tool or seed demo data</p></div></div>
+        </div>
+      </div>
+
+      <!-- MY CHALLANS VIEW -->
+      <div id="view-challans" style="display:none">
+        <div class="page-header">
+          <h2 id="challansTitle">My Challans</h2>
+          <p id="challansSubtitle">All violations recorded against your registered vehicle</p>
+        </div>
+        <div class="card">
+          <div id="myChallansTable"><div class="empty-state"><div class="es-icon">✅</div><h3>No challans</h3><p>No violations recorded for your vehicle</p></div></div>
+        </div>
+      </div>
+
+      <!-- CHALLAN LOOKUP VIEW -->
+      <div id="view-check" style="display:none">
+        <div class="page-header"><h2>Challan Lookup</h2><p>Search challans by any vehicle number</p></div>
+        <div class="card">
+          <div class="search-bar">
+            <div class="search-input-wrap"><span class="search-icon">🔍</span><input type="text" class="search-input" id="dashSearchVehicle" placeholder="Enter vehicle number (e.g. MH12AB1234)" maxlength="15"></div>
+            <button class="btn btn-primary" onclick="dashCheckChallan()">Search</button>
+          </div>
+          <div id="dashSearchResult"></div>
+        </div>
+      </div>
+
+      <!-- DETECTION TOOL VIEW -->
+      <div id="view-detect" style="display:none">
+        <div class="page-header"><h2>Detection Tool</h2><p>Upload an image to run helmet detection and issue challan automatically</p></div>
+        <div class="card">
+          <div class="detection-grid">
+            <div class="neural-bg" style="padding: 20px; border-radius: 12px; border: 1px solid rgba(0,245,160,0.1);">
+              <div class="form-group"><label class="form-label">Vehicle Number (for challan)</label><input type="text" class="form-input uppercase" id="detectVehicle" placeholder="MH12AB1234" maxlength="15"></div>
+              <div class="form-group"><label class="form-label">Camera / Location</label><select class="form-input" id="detectLocation"><option>FC Road, Pune</option><option>MG Road, Bangalore</option><option>Connaught Place, Delhi</option><option>Bandra-Worli Sea Link, Mumbai</option><option>Anna Salai, Chennai</option><option>Linking Road, Mumbai</option></select></div>
+              <div class="drop-zone" id="dropZone" onclick="document.getElementById('fileInput').click()" ondrop="handleDrop(event)" ondragover="handleDragOver(event)" ondragleave="this.classList.remove('dragover')">
+                <div class="dz-icon">📷</div><h4>Upload Image / Frame</h4><p>Click or drag-and-drop a photo from road camera<br>(JPG, PNG up to 10MB)</p>
+              </div>
+              <input type="file" id="fileInput" accept="image/*" style="display:none" onchange="handleFileSelect(event)">
+              <div style="margin-top: 16px; display: flex; gap: 12px;">
+                <button class="btn btn-primary" style="flex:1" onclick="runDetection()">🎯 Run Detection</button>
+                <button class="btn btn-ghost" onclick="simulateRandom()">🎲 Simulate</button>
+              </div>
+            </div>
+            <div>
+              <div class="preview-area" id="previewArea">
+                <div style="text-align:center; color: var(--text3);">
+                  <div style="font-size: 48px; margin-bottom: 8px; opacity: 0.3;">🖼️</div>
+                  <div style="font-size: 14px;">Image preview will appear here</div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div id="detectionResult" style="margin-top: 20px; display:none"></div>
+        </div>
+      </div>
+
+      <!-- LIVE CAMERA VIEW -->
+      <div id="view-camera" style="display:none">
+        <div class="page-header"><h2>Live Camera Feed</h2><p>Real-time helmet detection using your device camera</p></div>
+        <div class="card">
+          <div style="display: grid; grid-template-columns: 2fr 1fr; gap: 20px;">
+            <div>
+              <div class="camera-container">
+                <video id="cameraVideo" autoplay muted playsinline></video>
+                <canvas id="cameraCanvas" style="display:none"></canvas>
+                <div class="camera-overlay">
+                  <div class="corner tl"></div><div class="corner tr"></div><div class="corner bl"></div><div class="corner br"></div>
+                  <div class="cam-label"><div class="cam-dot"></div>LIVE DETECTION</div>
+                </div>
+              </div>
+              <div style="display: flex; gap: 12px; margin-top: 16px;">
+                <button class="btn btn-primary" onclick="startCamera()" id="startCamBtn">📹 Start Camera</button>
+                <button class="btn btn-danger" onclick="stopCamera()" id="stopCamBtn" style="display:none">⏹ Stop</button>
+                <button class="btn btn-ghost" onclick="captureFrame()">📸 Capture & Detect</button>
+              </div>
+            </div>
+            <div>
+              <div class="form-group"><label class="form-label">Vehicle Number</label><input type="text" class="form-input uppercase" id="camVehicle" placeholder="MH12AB1234" maxlength="15"></div>
+              <div class="form-group"><label class="form-label">Location</label><select class="form-input" id="camLocation"><option>FC Road, Pune</option><option>MG Road, Bangalore</option><option>Connaught Place, Delhi</option></select></div>
+              <div style="background: rgba(255,255,255,0.02); border-radius: 10px; padding: 16px; border: 1px solid rgba(255,255,255,0.05);">
+                <div style="font-size: 11px; color: var(--text3); font-family: var(--font-mono); margin-bottom: 8px; letter-spacing: 0.1em;">DETECTION STATUS</div>
+                <div id="liveStatus" style="font-size: 14px; color: var(--text3);">Camera not started</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- PROFILE VIEW -->
+      <div id="view-profile" style="display:none">
+        <div class="page-header"><h2>My Profile</h2><p>Manage your account and vehicle information</p></div>
+        <div class="card" style="max-width: 480px;">
+          <div class="card-title">👤 Account Details</div>
+          <div class="form-group"><label class="form-label">Full Name</label><input type="text" class="form-input" id="profileName" disabled></div>
+          <div class="form-group"><label class="form-label">Email</label><input type="email" class="form-input" id="profileEmail" disabled></div>
+          <div class="form-group"><label class="form-label">Vehicle Number</label><input type="text" class="form-input uppercase" id="profileVehicle" placeholder="Add vehicle number"></div>
+          <button class="btn btn-primary" onclick="updateProfile()">💾 Save Changes</button>
+        </div>
+      </div>
+
+    </main>
+  </div>
+</div>
+
+<script>
+const API = 'http://localhost:5000/api';
+let token = localStorage.getItem('hs_token');
+let currentUser = JSON.parse(localStorage.getItem('hs_user') || 'null');
+let userRole = 'rider';
+let cameraStream = null;
+let selectedImageB64 = null;
+
+window.onload = async () => {
+  setTimeout(() => {
+    document.getElementById('introOverlay').classList.add('hide');
+    setTimeout(() => { document.getElementById('introOverlay').style.display = 'none'; }, 500);
+  }, 4000);
+  document.getElementById('todayDate').textContent = new Date().toLocaleDateString('en-IN', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+  await fetchStats();
+  if (token && currentUser) { setupDashboard(); showPage('dashboardPage'); }
+  else { showPage('authPage'); }
+};
+
+async function fetchStats() {
+  try {
+    const r = await fetch(`${API}/stats`);
+    const d = await r.json();
+    document.getElementById('statTotal').textContent = d.total_challans || 0;
+    document.getElementById('ovTotalChallans').textContent = d.total_challans || 0;
+    document.getElementById('ovUnpaid').textContent = d.unpaid_challans || 0;
+    document.getElementById('ovFine').textContent = '₹' + (d.total_fine_pending || 0).toLocaleString('en-IN');
+  } catch(e) { seedDemoUI(); }
+}
+
+function seedDemoUI() {
+  document.getElementById('statTotal').textContent = '247';
+  document.getElementById('ovTotalChallans').textContent = '247';
+  document.getElementById('ovUnpaid').textContent = '183';
+  document.getElementById('ovFine').textContent = '₹91,500';
+}
+
+function showPage(id) {
+  document.querySelectorAll('.page').forEach(p => p.classList.remove('active'));
+  document.getElementById(id).classList.add('active');
+}
+
+function switchView(view) {
+  if ((view === 'detect' || view === 'camera') && userRole !== 'admin') { showToast('Access denied. Admin privileges required.', 'error'); return; }
+  document.querySelectorAll('[id^="view-"]').forEach(v => v.style.display = 'none');
+  document.getElementById('view-' + view).style.display = 'block';
+  document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
+  document.getElementById('nav-' + view)?.classList.add('active');
+  if (view === 'overview') loadOverview();
+  if (view === 'challans') {
+    if (userRole === 'admin') { document.getElementById('challansTitle').textContent = 'All Challans'; document.getElementById('challansSubtitle').textContent = 'System-wide challan management and monitoring'; }
+    else { document.getElementById('challansTitle').textContent = 'My Challans'; document.getElementById('challansSubtitle').textContent = 'All violations recorded against your registered vehicle'; }
+    loadMyChallans();
+  }
+  if (view === 'profile') loadProfile();
+}
+
+function switchAuthTab(tab) {
+  document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
+  event.target.classList.add('active');
+  document.getElementById('loginForm').style.display = tab === 'login' ? 'block' : 'none';
+  document.getElementById('registerForm').style.display = tab === 'register' ? 'block' : 'none';
+}
+
+function fillDemo(email, pass) { document.getElementById('loginEmail').value = email; document.getElementById('loginPassword').value = pass; }
+
+async function doLogin() {
+  const email = document.getElementById('loginEmail').value.trim();
+  const password = document.getElementById('loginPassword').value;
+  showError('loginError', '');
+  if (!email || !password) { showError('loginError', 'Please fill all fields'); return; }
+  showLoading('Authenticating...');
+  try {
+    const r = await fetch(`${API}/login`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ email, password }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Login failed');
+    token = d.token; currentUser = d.user;
+    localStorage.setItem('hs_token', token); localStorage.setItem('hs_user', JSON.stringify(currentUser));
+    setupDashboard(); showPage('dashboardPage'); showToast('Welcome back, ' + currentUser.name + '!', 'success');
+    // Add slide-in animation to dashboard
+    setTimeout(() => {
+      document.getElementById('dashboardPage').classList.add('slide-in-bottom');
+    }, 100);
+  } catch(e) {
+    showError('loginError', e.message);
+    document.getElementById('loginError').classList.add('animate');
+    setTimeout(() => document.getElementById('loginError').classList.remove('animate'), 1000);
+    if (email === 'rider@demo.com' || email === 'admin@demo.com') {
+      currentUser = { name: email === 'rider@demo.com' ? 'Ravi Kumar' : 'Admin Officer', email, vehicle_number: email === 'rider@demo.com' ? 'MH12AB1234' : null, id: 1 };
+      token = 'demo-token';
+      localStorage.setItem('hs_user', JSON.stringify(currentUser));
+      setupDashboard(); showPage('dashboardPage');
+      setTimeout(() => {
+        document.getElementById('dashboardPage').classList.add('slide-in-bottom');
+      }, 100);
+    }
+  } finally { hideLoading(); }
+}
+
+async function doRegister() {
+  const name = document.getElementById('regName').value.trim();
+  const email = document.getElementById('regEmail').value.trim();
+  const password = document.getElementById('regPassword').value;
+  const vehicle_number = document.getElementById('regVehicle').value.trim().toUpperCase();
+  showError('registerError', '');
+  if (!name || !email || !password) { showError('registerError', 'Please fill all required fields'); return; }
+  showLoading('Creating account...');
+  try {
+    const r = await fetch(`${API}/register`, { method: 'POST', headers: {'Content-Type': 'application/json'}, body: JSON.stringify({ name, email, password, vehicle_number }) });
+    const d = await r.json();
+    if (!r.ok) throw new Error(d.error || 'Registration failed');
+    showSuccess('registerSuccess', 'Account created! Please login.');
+    setTimeout(() => switchAuthTab('login'), 1500);
+  } catch(e) { showError('registerError', e.message); }
+  finally { hideLoading(); }
+}
+
+function doLogout() {
+  token = null; currentUser = null;
+  localStorage.removeItem('hs_token'); localStorage.removeItem('hs_user');
+  if (cameraStream) stopCamera();
+  showPage('authPage'); showToast('Logged out successfully', 'success');
+}
+
+function setupDashboard() {
+  document.getElementById('navUser').textContent = currentUser?.name || '—';
+  userRole = currentUser?.email?.includes('admin') ? 'admin' : 'rider';
+  document.getElementById('navRole').textContent = userRole.toUpperCase();
+  document.querySelectorAll('.admin-only').forEach(s => { s.style.display = userRole === 'admin' ? 'block' : 'none'; });
+  // Add glow effect to navbar
+  document.querySelector('.navbar').classList.add('glow-pulse');
+  setTimeout(() => document.querySelector('.navbar').classList.remove('glow-pulse'), 2000);
+  loadOverview(); loadMyChallans();
+}
+
+async function loadOverview() {
+  if (userRole === 'admin') { document.getElementById('overviewTitle').textContent = 'Admin Control Center'; }
+  else { document.getElementById('overviewTitle').textContent = 'Dashboard Overview'; }
+  await fetchStats();
+  if (currentUser?.vehicle_number && userRole === 'rider') { loadVehicleCard(currentUser.vehicle_number); }
+  else if (userRole === 'rider') { document.getElementById('myVehicleCard').style.display = 'none'; }
+  loadVehicleStatistics('MH12AB1234');
+  if (userRole === 'admin') { document.getElementById('myVehicleCard').style.display = 'none'; document.getElementById('adminDashboardCard').style.display = 'block'; }
+  else { document.getElementById('adminDashboardCard').style.display = 'none'; }
+  loadRecentDetections();
+}
+
+async function loadVehicleCard(vn) {
+  try {
+    const r = await fetch(`${API}/challans/check?vehicle_number=${vn}`);
+    const d = await r.json();
+    const unpaid = d.challans?.filter(c => c.status === 'Unpaid') || [];
+    document.getElementById('myVehicleContent').innerHTML = `<div style="display:flex; align-items:center; gap:20px; padding: 8px 0;"><div style="font-size:48px">🏍️</div><div><div class="vehicle-tag" style="font-size:18px; margin-bottom:8px">${vn}</div><div style="font-size:14px; color:var(--text2)">${unpaid.length} unpaid challans · ₹${(unpaid.reduce((s,c) => s+c.fine_amount,0)).toLocaleString('en-IN')} due</div></div><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="switchView('challans')">View All →</button></div>`;
+  } catch(e) { document.getElementById('myVehicleContent').innerHTML = demoVehicleCard(vn); }
+}
+
+function demoVehicleCard(vn) {
+  return `<div style="display:flex; align-items:center; gap:20px; padding: 8px 0;"><div style="font-size:48px">🏍️</div><div><div class="vehicle-tag" style="font-size:18px; margin-bottom:8px">${vn || 'Not set'}</div><div style="font-size:14px; color:var(--text2)">Demo mode — 3 unpaid challans · ₹1,500 due</div></div><button class="btn btn-primary btn-sm" style="margin-left:auto" onclick="switchView('challans')">View All →</button></div>`;
+}
+
+async function loadVehicleStatistics(vehicleNumber) {
+  try {
+    const r = await fetch(`${API}/challans/check?vehicle_number=${vehicleNumber}`);
+    const d = await r.json();
+    const challans = d.challans || [];
+    if (challans.length === 0 && vehicleNumber === 'MH12AB1234') { loadDemoVehicleStatistics(vehicleNumber); return; }
+    document.getElementById('vehicleTotalChallans').textContent = challans.length;
+    document.getElementById('vehicleUnpaidChallans').textContent = challans.filter(c => c.status === 'Unpaid').length;
+    document.getElementById('vehiclePaidChallans').textContent = challans.filter(c => c.status === 'Paid').length;
+    document.getElementById('vehicleTotalFines').textContent = '₹' + challans.reduce((s,c) => s+(c.fine_amount||0),0).toLocaleString('en-IN');
+  } catch(e) { loadDemoVehicleStatistics(vehicleNumber); }
+}
+
+function loadDemoVehicleStatistics(vehicleNumber) {
+  document.getElementById('vehicleTotalChallans').textContent = '3';
+  document.getElementById('vehicleUnpaidChallans').textContent = '2';
+  document.getElementById('vehiclePaidChallans').textContent = '1';
+  document.getElementById('vehicleTotalFines').textContent = '₹1,500';
+}
+
+function loadRecentDetections() {}
+
+async function loadMyChallans() {
+  if (userRole === 'admin') {
+    const adminChallans = [
+      { id:1, challan_number:'CH20241201001', vehicle_number:'TN09BT9721', location:'MG Road, Bangalore', violation:'No Helmet Detected', fine_amount:500, status:'Unpaid', confidence:0.94, timestamp:new Date(Date.now()-3600000).toISOString(), camera_id:'CAM-001' },
+      { id:2, challan_number:'CH20241201002', vehicle_number:'UNKNOWN', location:'FC Road, Pune', violation:'No Helmet Detected', fine_amount:500, status:'Unpaid', confidence:0.89, timestamp:new Date(Date.now()-7200000).toISOString(), camera_id:'CAM-002' },
+      { id:3, challan_number:'CH20241201003', vehicle_number:'KA01AB1234', location:'Bandra, Mumbai', violation:'No Helmet Detected', fine_amount:500, status:'Paid', confidence:0.96, timestamp:new Date(Date.now()-10800000).toISOString(), camera_id:'CAM-003' }
+    ];
+    const unpaid = adminChallans.filter(c => c.status === 'Unpaid').length;
+    const badge = document.getElementById('navBadge');
+    if (unpaid > 0) { badge.textContent = unpaid; badge.style.display = 'inline'; }
+    renderChallansTable('myChallansTable', adminChallans, false);
+  } else {
+    const challans = demoChallans();
+    const unpaid = challans.filter(c => c.status === 'Unpaid').length;
+    const badge = document.getElementById('navBadge');
+    if (unpaid > 0) { badge.textContent = unpaid; badge.style.display = 'inline'; }
+    renderChallansTable('myChallansTable', challans, false);
+  }
+}
+
+function demoChallans() {
+  return [
+    { id:1, challan_number:'CH20241201001', vehicle_number:'MH12AB1234', location:'FC Road, Pune', violation:'No Helmet Detected', fine_amount:500, status:'Unpaid', confidence:0.94, timestamp:new Date(Date.now()-3600000).toISOString(), camera_id:'CAM-001', image_path:null },
+    { id:2, challan_number:'CH20241130002', vehicle_number:'MH12AB1234', location:'MG Road, Bangalore', violation:'No Helmet Detected', fine_amount:500, status:'Paid', confidence:0.88, timestamp:new Date(Date.now()-86400000).toISOString(), camera_id:'CAM-003', image_path:null },
+    { id:3, challan_number:'CH20241129003', vehicle_number:'MH12AB1234', location:'Bandra, Mumbai', violation:'No Helmet Detected', fine_amount:500, status:'Unpaid', confidence:0.96, timestamp:new Date(Date.now()-172800000).toISOString(), camera_id:'CAM-007', image_path:null }
+  ];
+}
+
+function renderChallansTable(containerId, challans, showPay) {
+  if (!challans.length) { document.getElementById(containerId).innerHTML = `<div class="empty-state"><div class="es-icon">✅</div><h3>No challans found</h3></div>`; return; }
+  const nc = challans.map(c => ({ id:c.id, challan_number:c.challan_number||c.id, vehicle_number:c.vehicle_number, location:c.location, fine_amount:c.fine_amount, status:c.status, confidence:c.confidence||0.9, detected_at:c.detected_at||c.timestamp||new Date().toISOString(), camera_id:c.camera_id, detected_image:c.detected_image||c.image_path }));
+  document.getElementById(containerId).innerHTML = `
+    <table class="challan-table">
+      <thead><tr><th>Challan No.</th><th>Vehicle</th><th>Location</th><th>Fine</th><th>Confidence</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+      <tbody>${nc.map((c, index) => `<tr class="data-row" style="animation-delay: ${index * 0.1}s;">
+        <td><span class="challan-num">${c.challan_number}</span></td>
+        <td><span class="vehicle-tag">${c.vehicle_number}</span></td>
+        <td style="font-size:13px; color:var(--text2)">${c.location||'—'}</td>
+        <td style="color:var(--accent); font-weight:700; font-family:var(--font-display)">₹${c.fine_amount}</td>
+        <td><div class="conf-bar"><div class="conf-track"><div class="conf-fill" style="width:${(c.confidence||0.9)*100}%"></div></div><span style="font-size:12px; color:var(--text2); width:36px">${Math.round((c.confidence||0.9)*100)}%</span></div></td>
+        <td style="font-size:12px; color:var(--text2); font-family:var(--font-mono)">${new Date(c.detected_at).toLocaleDateString('en-IN')}<br>${new Date(c.detected_at).toLocaleTimeString('en-IN', {hour:'2-digit',minute:'2-digit'})}</td>
+        <td><span class="badge-status ${c.status==='Paid'?'badge-paid':'badge-unpaid'}">${c.status==='Paid'?'✓ Paid':'● Unpaid'}</span></td>
+        <td style="display:flex; gap:8px; flex-wrap:wrap"><button class="btn btn-ghost btn-sm" onclick="viewChallanDetail(${JSON.stringify(c).replace(/"/g,'&quot;')})">📷 View</button>${showPay&&c.status==='Unpaid'?`<button class="btn btn-success btn-sm" onclick="payChallan(${c.id})">💳 Pay</button>`:''}</td>
+      </tr>`).join('')}</tbody>
+    </table>`;
+}
+
+function goToPublicCheck() { showPage('publicCheckPage'); }
+
+async function checkPublicChallan() {
+  const vn = document.getElementById('publicVehicle').value.trim().toUpperCase();
+  if (!vn) { showToast('Enter a vehicle number', 'error'); return; }
+  showLoading('Searching...');
+  try { const r = await fetch(`${API}/challans/check?vehicle_number=${vn}`); const d = await r.json(); renderPublicResult(d, 'publicResult'); }
+  catch(e) { renderPublicResult(mockChallanResult(vn), 'publicResult'); }
+  finally { hideLoading(); }
+}
+
+async function dashCheckChallan() {
+  const vn = document.getElementById('dashSearchVehicle').value.trim().toUpperCase();
+  if (!vn) { showToast('Enter a vehicle number', 'error'); return; }
+  showLoading('Searching...');
+  try { const r = await fetch(`${API}/challans/check?vehicle_number=${vn}`); const d = await r.json(); renderPublicResult(d, 'dashSearchResult'); }
+  catch(e) { renderPublicResult(mockChallanResult(vn), 'dashSearchResult'); }
+  finally { hideLoading(); }
+}
+
+function mockChallanResult(vn) {
+  const hasChallan = vn === 'MH12AB1234' || vn === 'KA03CD5678';
+  return { vehicle_number:vn, total_challans:hasChallan?2:0, total_fine:hasChallan?1000:0, challans:hasChallan?demoChallans().slice(0,2):[] };
+}
+
+function renderPublicResult(d, containerId) {
+  const el = document.getElementById(containerId);
+  el.classList.add('scale-in');
+  setTimeout(() => el.classList.remove('scale-in'), 500);
+  if (!d.total_challans) {
+    el.innerHTML = `<div style="background:rgba(0,245,160,0.05); border:1px solid rgba(0,245,160,0.2); border-radius:12px; padding:24px; display:flex; align-items:center; gap:20px;" class="bounce-in"><div style="font-size:48px">✅</div><div><div style="font-size:20px; font-weight:700; color:var(--accent)">No Challans Found</div><div style="font-size:14px; color:var(--text2); margin-top:4px">Vehicle <strong style="font-family:var(--font-mono); color:var(--accent3)">${d.vehicle_number}</strong> has no recorded violations</div></div></div>`;
+    return;
+  }
+  el.innerHTML = `
+    <div class="vehicle-result-header slide-in-left">
+      <div class="vehicle-icon">🏍️</div>
+      <div class="vehicle-info"><h3>${d.vehicle_number}</h3><p>${d.total_challans} challan(s) found</p></div>
+      <div class="fine-summary"><div class="amount">₹${(d.total_fine||0).toLocaleString('en-IN')}</div><div class="label">TOTAL PENDING</div></div>
+    </div>
+    <div class="card slide-in-right" style="margin-bottom:0; padding:0; overflow:hidden">
+      <table class="challan-table">
+        <thead><tr><th>Challan No.</th><th>Violation</th><th>Location</th><th>Fine</th><th>Date</th><th>Status</th><th>Action</th></tr></thead>
+        <tbody>${d.challans.map((c, index) => `<tr class="data-row" style="animation-delay: ${index * 0.15}s;">
+          <td><span class="challan-num">${c.challan_number}</span></td>
+          <td style="font-size:13px; color:var(--text2)">${c.violation||'No helmet'}</td>
+          <td style="font-size:13px; color:var(--text2)">${c.location||'—'}</td>
+          <td style="color:var(--accent); font-weight:700; font-family:var(--font-display)">₹${c.fine_amount}</td>
+          <td style="font-size:12px; color:var(--text2); font-family:var(--font-mono)">${new Date(c.detected_at).toLocaleDateString('en-IN')}</td>
+          <td><span class="badge-status ${c.status==='Paid'?'badge-paid':'badge-unpaid'}">${c.status==='Paid'?'✓ Paid':'● Unpaid'}</span></td>
+          <td><button class="btn btn-ghost btn-sm" onclick="viewChallanDetail(${JSON.stringify(c).replace(/"/g,'&quot;')})">📷 View</button></td>
+        </tr>`).join('')}</tbody>
+      </table>
+    </div>`;
+}
+
+async function payChallan(id) {
+  if (!confirm('Pay ₹500 fine for this challan?')) return;
+  showLoading('Processing payment...');
+  try { const r = await fetch(`${API}/challans/${id}/pay`, { method:'POST', headers:{'Authorization':'Bearer '+token} }); if (!r.ok) throw new Error(); showToast('Challan paid successfully! ✅', 'success'); loadMyChallans(); }
+  catch(e) { showToast('Payment processed (demo)', 'success'); loadMyChallans(); }
+  finally { hideLoading(); }
+}
+
+function viewChallanDetail(challan) {
+  const c = typeof challan === 'string' ? JSON.parse(challan) : challan;
+  document.getElementById('modalContent').innerHTML = `
+    ${c.detected_image ? `<img src="${c.detected_image}" class="detection-img" alt="Detection Image">` : `<div style="background:rgba(255,255,255,0.02); border:1px dashed rgba(0,245,160,0.15); border-radius:10px; padding:40px; text-align:center; margin:12px 0; color:var(--text3)"><div style="font-size:48px; margin-bottom:8px; opacity:0.3">📷</div><div>Detection image will appear here in live mode</div></div>`}
+    <div class="challan-detail-grid">
+      <div class="detail-item"><div class="detail-key">Challan Number</div><div class="detail-val mono" style="color:var(--accent3)">${c.challan_number}</div></div>
+      <div class="detail-item"><div class="detail-key">Vehicle Number</div><div class="detail-val"><span class="vehicle-tag">${c.vehicle_number}</span></div></div>
+      <div class="detail-item"><div class="detail-key">Violation</div><div class="detail-val">${c.violation||'Not wearing helmet'}</div></div>
+      <div class="detail-item"><div class="detail-key">Location</div><div class="detail-val">${c.location||'—'}</div></div>
+      <div class="detail-item"><div class="detail-key">Detection Confidence</div><div class="detail-val">${c.confidence?Math.round(c.confidence*100)+'%':'—'}</div></div>
+      <div class="detail-item"><div class="detail-key">Date & Time</div><div class="detail-val mono" style="font-size:13px">${new Date(c.detected_at||c.timestamp).toLocaleString('en-IN')}</div></div>
+      <div class="detail-item"><div class="detail-key">Status</div><div class="detail-val"><span class="badge-status ${c.status==='Paid'?'badge-paid':'badge-unpaid'}">${c.status==='Paid'?'✓ Paid':'● Unpaid'}</span></div></div>
+      <div class="detail-item"><div class="detail-key">Fine Amount</div><div class="detail-val fine-val">₹${c.fine_amount}</div></div>
+    </div>
+    ${c.status!=='Paid'?`<button class="btn btn-primary btn-full" style="margin-top:20px" onclick="closeModal()">💳 Pay Fine Online</button>`:''}`;
+  document.getElementById('imageModal').classList.add('open');
+}
+
+function closeModal(element) {
+  if (element) { const m = element.closest('.modal-overlay'); if (m) { m.remove(); return; } }
+  document.getElementById('imageModal').classList.remove('open');
+}
+
+function handleDragOver(e) { e.preventDefault(); document.getElementById('dropZone').classList.add('dragover'); }
+function handleDrop(e) { e.preventDefault(); document.getElementById('dropZone').classList.remove('dragover'); const file = e.dataTransfer.files[0]; if (file && file.type.startsWith('image/')) loadImageFile(file); }
+function handleFileSelect(e) { const file = e.target.files[0]; if (file) loadImageFile(file); }
+function loadImageFile(file) { const reader = new FileReader(); reader.onload = (e) => { selectedImageB64 = e.target.result; document.getElementById('previewArea').innerHTML = `<img src="${selectedImageB64}" style="width:100%;display:block;border-radius:12px">`; }; reader.readAsDataURL(file); }
+
+async function runDetection() {
+  const vehicle = document.getElementById('detectVehicle').value.trim().toUpperCase();
+  const location = document.getElementById('detectLocation').value;
+  if (!vehicle) { 
+    showToast('Enter vehicle number first', 'error'); 
+    document.getElementById('detectVehicle').classList.add('shake');
+    setTimeout(() => document.getElementById('detectVehicle').classList.remove('shake'), 500);
+    return; 
+  }
+  showLoading('Running AI detection...');
+  try {
+    const r = await fetch(`${API}/detect`, { method:'POST', headers:{'Content-Type':'application/json','Authorization':'Bearer '+token}, body:JSON.stringify({ image:selectedImageB64, vehicle_number:vehicle, location, camera_id:'CAM-WEB' }) });
+    const d = await r.json(); showDetectionResult(d);
+  } catch(e) {
+    const noHelmet = Math.random() > 0.35;
+    showDetectionResult({ vehicle_number:vehicle, no_helmet_detected:noHelmet, helmet_detected:!noHelmet, confidence:(0.82+Math.random()*0.17).toFixed(2), challan_issued:noHelmet, challan:noHelmet?{challan_number:'CH'+Date.now(), fine_amount:500, detected_image:selectedImageB64}:null });
+  } finally { hideLoading(); }
+}
+
+function simulateRandom() {
+  const vehicle = document.getElementById('detectVehicle').value.trim().toUpperCase() || 'MH12AB1234';
+  const noHelmet = Math.random() > 0.35;
+  showDetectionResult({ vehicle_number:vehicle, no_helmet_detected:noHelmet, helmet_detected:!noHelmet, confidence:(0.82+Math.random()*0.17).toFixed(2), challan_issued:noHelmet, challan:noHelmet?{challan_number:'CH'+Date.now(), fine_amount:500, detected_image:null}:null });
+  if (noHelmet) loadMyChallans();
+}
+
+function showDetectionResult(d) {
+  const el = document.getElementById('detectionResult');
+  el.style.display = 'block';
+  el.classList.add('bounce-in');
+  setTimeout(() => el.classList.remove('bounce-in'), 600);
+  if (d.no_helmet_detected) {
+    el.innerHTML = `<div class="detection-result danger"><div class="result-title red">🚨 NO HELMET DETECTED</div><div style="margin-top:12px; font-size:14px; color:var(--text2)">AI Confidence: <strong style="color:var(--accent3)">${Math.round(d.confidence*100)}%</strong> · Vehicle: <strong style="font-family:var(--font-mono); color:var(--accent4)">${d.vehicle_number}</strong></div>${d.challan?`<div style="margin-top:16px; background:rgba(255,56,100,0.06); border:1px solid rgba(255,56,100,0.2); border-radius:10px; padding:16px;"><div style="font-size:11px; color:var(--text3); font-family:var(--font-mono); margin-bottom:8px; letter-spacing:0.1em;">CHALLAN ISSUED</div><div style="display:flex; justify-content:space-between; align-items:center;"><div><div style="font-family:var(--font-mono); color:var(--accent3); font-size:15px">${d.challan.challan_number}</div><div style="font-size:13px; color:var(--text2); margin-top:4px">Fine: <strong style="color:var(--accent2)">₹${d.challan.fine_amount}</strong></div></div><button class="btn btn-danger btn-sm" onclick="viewChallanDetail(${JSON.stringify({...d.challan, vehicle_number:d.vehicle_number, violation:'Not wearing helmet', detected_at:new Date().toISOString(), status:'Unpaid', location:document.getElementById('detectLocation').value}).replace(/"/g,'&quot;')})">View Challan →</button></div></div>`:''}</div>`;
+    showToast('⚠ No helmet detected! Challan issued.', 'error');
+  } else {
+    el.innerHTML = `<div class="detection-result safe"><div class="result-title green">✅ HELMET DETECTED — COMPLIANT</div><div style="margin-top:12px; font-size:14px; color:var(--text2)">AI Confidence: <strong style="color:var(--accent)">${Math.round(d.confidence*100)}%</strong> · Vehicle: <strong style="font-family:var(--font-mono); color:var(--accent4)">${d.vehicle_number}</strong></div><div style="margin-top:12px; font-size:13px; color:var(--accent)">No challan issued. Rider is wearing a helmet.</div></div>`;
+    showToast('✅ Helmet detected. No violation.', 'success');
+  }
+}
+
+async function startCamera() {
+  try {
+    cameraStream = await navigator.mediaDevices.getUserMedia({ video: true });
+    document.getElementById('cameraVideo').srcObject = cameraStream;
+    document.getElementById('startCamBtn').style.display = 'none';
+    document.getElementById('stopCamBtn').style.display = 'inline-flex';
+    document.getElementById('liveStatus').textContent = '🟢 Camera active — ready for detection';
+    document.getElementById('liveStatus').style.color = 'var(--accent)';
+  } catch(e) { showToast('Camera access denied or not available', 'error'); document.getElementById('liveStatus').textContent = '❌ Camera not available'; document.getElementById('liveStatus').style.color = 'var(--accent2)'; }
+}
+
+function stopCamera() {
+  if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
+  document.getElementById('cameraVideo').srcObject = null;
+  document.getElementById('startCamBtn').style.display = 'inline-flex';
+  document.getElementById('stopCamBtn').style.display = 'none';
+  document.getElementById('liveStatus').textContent = 'Camera stopped';
+  document.getElementById('liveStatus').style.color = 'var(--text3)';
+}
+
+function captureFrame() {
+  const video = document.getElementById('cameraVideo');
+  const canvas = document.getElementById('cameraCanvas');
+  if (!cameraStream) { showToast('Start camera first', 'error'); return; }
+  canvas.width = video.videoWidth || 640; canvas.height = video.videoHeight || 480;
+  canvas.getContext('2d').drawImage(video, 0, 0);
+  const imageData = canvas.toDataURL('image/jpeg', 0.8);
+  const vehicle = document.getElementById('camVehicle').value.trim().toUpperCase() || 'UNKNOWN';
+  const location = document.getElementById('camLocation').value;
+  selectedImageB64 = imageData;
+  document.getElementById('detectVehicle').value = vehicle;
+  document.getElementById('detectLocation').value = location;
+  switchView('detect');
+  document.getElementById('previewArea').innerHTML = `<img src="${imageData}" style="width:100%;display:block;border-radius:12px">`;
+  runDetection();
+}
+
+function loadProfile() {
+  if (!currentUser) return;
+  document.getElementById('profileName').value = currentUser.name || '';
+  document.getElementById('profileEmail').value = currentUser.email || '';
+  document.getElementById('profileVehicle').value = currentUser.vehicle_number || '';
+}
+
+function updateProfile() {
+  const vn = document.getElementById('profileVehicle').value.trim().toUpperCase();
+  currentUser.vehicle_number = vn;
+  localStorage.setItem('hs_user', JSON.stringify(currentUser));
+  showToast('Profile updated! Vehicle: ' + vn, 'success');
+  loadOverview();
+}
+
+function showError(id, msg) { const el = document.getElementById(id); if (!el) return; el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+function showSuccess(id, msg) { const el = document.getElementById(id); if (!el) return; el.textContent = msg; el.style.display = msg ? 'block' : 'none'; }
+function showLoading(text='Loading...') { document.getElementById('loadingText').textContent = text; document.getElementById('loadingOverlay').classList.add('show'); }
+function hideLoading() { document.getElementById('loadingOverlay').classList.remove('show'); }
+
+function showToast(msg, type='success') {
+  const c = document.getElementById('toastContainer');
+  const t = document.createElement('div');
+  t.className = `toast ${type}`;
+  t.innerHTML = `<span>${type==='success'?'✅':'❌'}</span> ${msg}`;
+  c.appendChild(t);
+  setTimeout(() => t.remove(), 4000);
+}
+
+document.getElementById('imageModal').addEventListener('click', function(e) { if (e.target === this) closeModal(); });
+</script>
+</body>
+</html>
